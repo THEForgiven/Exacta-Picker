@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayesian Horse Racing App with Kelly Criterion</title>
+</head>
+<body>
+    <h1>Bayesian Horse Racing App with Kelly Criterion</h1>
+    <form>
+        <label for="morningLineOdds">Enter Morning Line Odds (comma-separated):</label><br>
+        <input type="text" id="morningLineOdds" name="morningLineOdds"><br><br>
+        <label for="toteBoardOdds">Enter Tote Board Odds (comma-separated):</label><br>
+        <input type="text" id="toteBoardOdds" name="toteBoardOdds"><br><br>
+        <label for="bankroll">Enter Your Bankroll:</label><br>
+        <input type="number" id="bankroll" name="bankroll" step="0.01" min="0"><br><br>
+        <button type="button" onclick="calculateProbabilitiesAndBets()">Calculate Probabilities and Bets</button>
+    </form>
+    <h2>Results:</h2>
+    <div id="results"></div>
+
+    <script>
+        function calculateProbabilitiesAndBets() {
+            const morningLineOdds = document.getElementById('morningLineOdds').value.split(',').map(parseFloat);
+            const toteBoardOdds = document.getElementById('toteBoardOdds').value.split(',').map(parseFloat);
+            const bankroll = parseFloat(document.getElementById('bankroll').value);
+
+            const priorProbabilities = oddsToProbabilities(morningLineOdds);
+            const newEvidenceProbabilities = oddsToProbabilities(toteBoardOdds);
+
+            const bayesianProbabilities = calculateBayesian(priorProbabilities, newEvidenceProbabilities);
+            const topTwo = findTopTwoHorses(bayesianProbabilities);
+            const kellyBets = calculateKellyBets(bayesianProbabilities, toteBoardOdds, bankroll);
+
+            displayResults(topTwo, kellyBets);
+        }
+
+        function oddsToProbabilities(oddsList) {
+            return oddsList.map(odds => odds === 0 ? 0 : 1 / odds);
+        }
+
+        function calculateBayesian(priors, evidence) {
+            const combined = priors.map((prior, i) => prior * evidence[i]);
+            const total = combined.reduce((a, b) => a + b, 0);
+            return combined.map(value => value / total);
+        }
+
+        function findTopTwoHorses(probabilities) {
+            let first = -1;
+            let second = -1;
+
+            for (let i = 0; i < probabilities.length; i++) {
+                if (probabilities[i] === 0) continue;
+
+                if (first === -1 || probabilities[i] > probabilities[first]) {
+                    second = first;
+                    first = i;
+                } else if (second === -1 || probabilities[i] > probabilities[second]) {
+                    second = i;
+                }
+            }
+
+            return [first + 1, second + 1];
+        }
+
+
+        function calculateKellyBets(bayesianProbabilities, toteBoardOdds, bankroll) {
+            return bayesianProbabilities.map((probability, index) => {
+                const odds = toteBoardOdds[index];
+                if (probability === 0 || odds === 0) return 0;
+
+                const kellyFraction = ((odds * probability) - 1) / (odds - 1);
+                return Math.max(0, kellyFraction * bankroll);
+            });
+        }
+
+        function displayResults(topTwo, kellyBets) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                Best choices for first and second place: Horse #${topTwo[0]} and Horse #${topTwo[1]}<br>
+                Kelly Bets:<br>
+                ${kellyBets.map((bet, index) => `Horse #${index + 1}: $${bet.toFixed(2)}`).join('<br>')}
+            `;
+        }
+    </script>
+</body>
+</html>
